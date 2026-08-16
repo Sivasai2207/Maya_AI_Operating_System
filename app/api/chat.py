@@ -1,6 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import select
 
+from app.core.prompts import MAYA_SYSTEM_PROMPT
+from app.llm.nvidia import generate_response
 from app.database.session import get_db
 from app.models.conversation import Conversation
 from app.models.message import Message
@@ -52,8 +55,26 @@ def chat(
     db.commit()
 
     # 3. Temporary Maya response.
-    maya_response = f"You said: {payload.message}"
-
+    history = db.scalars(
+        select(Message)
+        .where(Message.conversation_id == conversation.id)
+        .order_by(Message.created_at)
+    ).all()
+    llm_messages = [
+        {
+            "role": "system",
+            "content": MAYA_SYSTEM_PROMPT,
+        }
+    ]
+    for message in history:
+        llm_messages.append(
+            {
+            "role": message.role,
+            "content": message.content,
+            }
+        )
+    maya_response = generate_response(llm_messages)
+    
     # 4. Store Maya's response.
     assistant_message = Message(
         conversation_id=conversation.id,
