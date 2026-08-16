@@ -7,6 +7,7 @@ from app.models.message import Message
 from app.schemas.conversation import (
     ConversationCreate,
     ConversationResponse,
+    ConversationDetailResponse,
 )
 from app.schemas.message import MessageCreate, MessageResponse
 
@@ -64,3 +65,22 @@ def create_message(
     db.refresh(message)
 
     return message
+
+# Conversation Details Including Messages
+@router.get(
+    "/{conversation_id}",
+    response_model=ConversationDetailResponse,
+)
+def get_conversation(
+    conversation_id: int,
+    db: Session = Depends(get_db),
+):
+    conversation = db.get(Conversation, conversation_id)
+
+    if conversation is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Conversation not found",
+        )
+
+    return conversation
